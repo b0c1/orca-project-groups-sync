@@ -1,0 +1,11 @@
+{
+  "name": "orca-project-groups-sync",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Orca plugin: project groups in a JSON file, synced between devices",
+  "type": "module",
+  "scripts": {
+    "test": "node --test sync-plan.test.mjs"
+  },
+  "license": "MIT"
+}
