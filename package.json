@@ -1,6 +1,6 @@
 {
   "name": "orca-project-groups-sync",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Orca plugin: project groups in a JSON file, synced between devices",
   "type": "module",

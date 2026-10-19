@@ -8,7 +8,7 @@ An [Orca](https://github.com/b0c1/orca) plugin that mirrors your sidebar project
 
 ## Requirements
 
-Needs an Orca build with the `projects:organize` plugin capability (host API 1.1). Older Orca versions refuse the manifest.
+Needs Orca 1.4.215 or newer (the first build with the `projects:organize` plugin capability, host API 1.1). Older Orca versions reject the manifest with "orca-plugin.json is invalid" because they do not know that capability kind.
 
 ## Install
 
