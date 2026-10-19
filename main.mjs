@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { createGroup, deleteGroup, listCatalog, moveToGroup } from './orca-catalog.mjs'
 import {
   localLayout,
   mergeLayouts,
@@ -12,6 +13,8 @@ import {
 // Holds the groups, or a `syncFile` pointer to a shared copy (OneDrive, Dropbox, a git checkout...).
 const CONFIG_PATH = join(homedir(), '.orca', 'project-groups.json')
 const BASE_KEY = 'lastSynced'
+// Orca's local RPC has no change events, so poll while the worker is alive (Orca reaps it when idle).
+const POLL_MS = 20_000
 
 async function readJson(path) {
   try {
@@ -40,7 +43,7 @@ async function syncOnce(orca) {
   const storedBase = (await orca.host.call('storage.get', { key: BASE_KEY }))?.value
   const base = storedBase ? normalizeLayout(storedBase) : null
 
-  const catalog = await orca.host.call('projects.list')
+  const catalog = await listCatalog()
   const { groups, present } = localLayout(catalog)
   const target = mergeLayouts({ local: { groups }, present, shared, base })
 
@@ -58,15 +61,14 @@ async function syncOnce(orca) {
     }
   }
   for (const name of plan.creations) {
-    idByName.set(name, (await orca.host.call('projectGroups.create', { name })).id)
+    idByName.set(name, await createGroup(name))
   }
   for (const move of plan.moves) {
-    const groupId = move.groupName === null ? null : idByName.get(move.groupName)
-    await orca.host.call('projects.moveToGroup', { projectId: move.projectId, groupId })
+    await moveToGroup(move.projectId, move.groupName === null ? null : idByName.get(move.groupName))
   }
   // Deleting a group drops its remaining projects into the default group.
   for (const groupId of plan.deletions) {
-    await orca.host.call('projectGroups.delete', { groupId })
+    await deleteGroup(groupId)
   }
   await orca.host.call('storage.set', { key: BASE_KEY, value: target })
   return {
@@ -77,11 +79,11 @@ async function syncOnce(orca) {
   }
 }
 
-export default function activate(orca) {
-  // Our own writes re-fire projects.changed; serialize and coalesce so they settle as a no-op.
+export function createSyncRunner(orca) {
+  // Serialize and coalesce: a change landing mid-sync triggers exactly one more pass.
   let running = null
   let rerun = false
-  const sync = () => {
+  return () => {
     if (running) {
       rerun = true
       return running
@@ -100,7 +102,13 @@ export default function activate(orca) {
     })()
     return running
   }
-  const syncAndReport = () =>
+}
+
+let pollTimer = null
+
+export default function activate(orca) {
+  const sync = createSyncRunner(orca)
+  const syncQuietly = () =>
     sync().catch(async (error) => {
       const message = error instanceof Error ? error.message : String(error)
       orca.log(`sync failed: ${message}`)
@@ -109,10 +117,18 @@ export default function activate(orca) {
         .catch(() => undefined)
     })
 
-  orca.events.on('projects.changed', syncAndReport)
+  orca.events.on('worktree.created', syncQuietly)
+  orca.events.on('worktree.removed', syncQuietly)
   orca.commands.register('project-groups-sync-now', async () => {
     const result = await sync()
     orca.log(`synced with ${result.sharedPath}`)
     return result
   })
+  pollTimer = setInterval(syncQuietly, POLL_MS)
+  pollTimer.unref()
+  void syncQuietly()
+}
+
+export function deactivate() {
+  clearInterval(pollTimer)
 }

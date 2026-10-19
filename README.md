@@ -8,7 +8,7 @@ An [Orca](https://github.com/b0c1/orca) plugin that mirrors your sidebar project
 
 ## Requirements
 
-Needs an Orca build that includes the `projects:organize` plugin capability (host API 1.1), proposed in [stablyai/orca via b0c1/orca#1](https://github.com/b0c1/orca/pull/1). **No released Orca has it yet** (checked up to 1.4.230): those builds reject the manifest with "orca-plugin.json is invalid" because they do not know that capability kind. Until it ships, build Orca from that branch.
+Orca 1.4.x with the plugin system enabled, running on the same machine. The plugin talks to the local Orca runtime over the same pipe/socket the bundled `orca` CLI uses (`orca-runtime.json` in Orca's user-data folder), so it needs no special plugin capability beyond storage, events and notifications.
 
 ## Install
 
@@ -44,7 +44,8 @@ Groups imported from a folder or SSH root are device-specific and are left untou
 
 ## Limits
 
-- Sync runs on every project-group change and on the **Sync Now** command; the file is not watched continuously.
+- Orca's local RPC has no change events, so the plugin syncs on start, on worktree create/remove, on the **Sync Now** command, and every 20 s while its worker is alive. Orca stops idle plugin workers after a few minutes; the next trigger restarts it.
+- Groups are matched by name. Two groups with the same name are merged into the first.
 - Only group names and membership sync. Order, colour and nesting stay per device.
 - Two devices writing the shared file at the same moment is left to the sync service's conflict handling.
 
@@ -54,7 +55,7 @@ Groups imported from a folder or SSH root are device-specific and are left untou
 npm test
 ```
 
-The merge logic lives in `sync-plan.mjs` and is pure; `main.mjs` does the file and host I/O.
+The merge logic lives in `sync-plan.mjs` and is pure. `orca-rpc.mjs` is a one-request-per-connection client for Orca's local runtime RPC, `orca-catalog.mjs` shapes `repo.list` / `projectGroup.*` for the planner, and `main.mjs` does the file I/O and scheduling.
 
 ## License
 
