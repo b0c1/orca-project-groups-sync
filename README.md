@@ -8,7 +8,7 @@ An [Orca](https://github.com/b0c1/orca) plugin that mirrors your sidebar project
 
 ## Requirements
 
-Needs Orca 1.4.215 or newer (the first build with the `projects:organize` plugin capability, host API 1.1). Older Orca versions reject the manifest with "orca-plugin.json is invalid" because they do not know that capability kind.
+Needs an Orca build that includes the `projects:organize` plugin capability (host API 1.1), proposed in [stablyai/orca via b0c1/orca#1](https://github.com/b0c1/orca/pull/1). **No released Orca has it yet** (checked up to 1.4.230): those builds reject the manifest with "orca-plugin.json is invalid" because they do not know that capability kind. Until it ships, build Orca from that branch.
 
 ## Install
 
